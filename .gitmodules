@@ -1,0 +1,3 @@
+[submodule "task2/gloom"]
+	path = task2/gloom
+	url = git@github.com:senbon/gloom.git
