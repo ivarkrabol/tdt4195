@@ -6,11 +6,6 @@
 #include "vao.hpp"
 #include <stdbool.h>
 #include <iostream>
-#include <glm/vec3.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/transform.hpp>
 
 bool left_control_down = false;
 
@@ -30,62 +25,80 @@ void runProgram(GLFWwindow* window)
 	// Set default colour after clearing the colour buffer
 	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 
-	float vertices[] = {
-		 0.6,  0.6,  0.0,
-		-0.2,  0.6,  0.0,
-		-0.6, -0.6,  0.0,
-		 0.2, -0.6,  0.0,
+	// Set provoking vertex convention
+	glProvokingVertex(GL_FIRST_VERTEX_CONVENTION);
+
+
+	Model* models[2];
+	uint models_i = 0;
+
+	float square_vertices[] = {
+		 1.0,  1.0,
+		-1.0,  1.0,
+		-1.0, -1.0,
+		 1.0, -1.0,
 	};
 
-	uint indices[] = {
+	uint square_indices[] = {
 		0, 1, 3,
 		1, 2, 3,
 	};
 
-	float colors[] = {
-		 0.3,  0.7,  0.2,  1.0,
-		 0.3,  0.7,  0.2,  1.0,
-		 0.3,  0.7,  0.2,  1.0,
-		 0.3,  0.7,  0.2,  1.0,
+	float board_color[] = { 0.2, 0.7, 0.3, 1.0 };
+
+	Model board = createFlatModel(square_vertices, square_indices, board_color, 2, 0.3f, false);
+    board.transform = glm::translate(board.transform, glm::vec3(0.0f, 0.0f, -5.0f));
+	models[models_i++] = &board;
+
+    float square_colors[][4] = { 
+    	{ 0.7, 0.1, 0.1, 1.0 },
+		{ 0.1, 0.1, 0.7, 1.0 },
 	};
 
-	uint askew     = createTrianglesVAO(vertices, indices, colors, 2);
-	uint extrusion_triangles_num = 2;
-	uint extrusion = createExtrusionVAO(vertices, indices, colors, &extrusion_triangles_num, 0.2f);
+   //  for (int i = 0; i < 5; i++) {
+   //  	for (int j = 0; j < 8; j++) {
+			// Model square = createFlatModel(square_vertices, square_indices, square_colors[(i + j) % 2], 2, 0.0f, false);
+			// square.transform = glm::translate(square.transform, glm::vec3(j, i, -4.7f));
+			// models[models_i++] = &square;
+   //  	}
+   //  }
+	if (true) {
+		Model board2 = createFlatModel(square_vertices, square_indices, square_colors[0], 2, 0.0f, false);
+		board2.transform = glm::translate(board2.transform, glm::vec3(0.0f, 0.0f, -4.7f));
+		models[models_i++] = &board2;
+	}
+
 
     Gloom::Shader prog;
     prog.makeBasicShader(
-        "../../shaders/camera.vert",
-        "../../shaders/color.frag"
+        "../../shaders/light.vert",
+        "../../shaders/light.frag"
     );
     prog.activate();
 
-    uint transform_location = glGetUniformLocation(prog.get(), "transform");
+    uint model_location = glGetUniformLocation(prog.get(), "model");
+    
+    uint camera_location = glGetUniformLocation(prog.get(), "camera");
+    glm::mat4 camera = glm::perspective(glm::radians(45.0f), 5.0f/4.0f, 0.1f, 100.0f);
+    glUniformMatrix4fv(camera_location, 1, GL_FALSE, glm::value_ptr(camera));
 	
+    uint light_direction_location = glGetUniformLocation(prog.get(), "lightDirection");
+	glm::vec3 light_direction(0.0f, 0.0f, -1.0f);
+    glUniform3fv(light_direction_location, 1, glm::value_ptr(light_direction));
 
-    glm::mat4 camera;
-    camera = glm::rotate(camera, 0.4f, glm::vec3(1.0f, 0.0f, 0.0f));
-    camera = glm::translate(camera, glm::vec3(0.0f, 0.0f, 0.0f));
-    // glm::mat4 perspective = glm::perspective(glm::radians(45.0f), 5.0f/4.0f, 0.1f, 100.0f);
-    // camera = perspective * camera;
-    glUniformMatrix4fv(transform_location, 1, GL_FALSE, glm::value_ptr(camera));
-
-	double deltaSeconds;
+	// double deltaSeconds;
 
 	// Rendering Loop
 	while (!glfwWindowShouldClose(window)) {
 		// Clear colour and depth buffers
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	
 
-		deltaSeconds = getTimeDeltaSeconds();
-
-	    glBindVertexArray(extrusion);
-        glDrawElements(GL_TRIANGLES, kIndicesPerTriangle * extrusion_triangles_num, GL_UNSIGNED_INT, 0);
-        printGLError();
-
-	    // glBindVertexArray(askew);
-     //    glDrawElements(GL_TRIANGLES, kIndicesPerTriangle * 2, GL_UNSIGNED_INT, 0);
-     //    printGLError();
+		// deltaSeconds = getTimeDeltaSeconds();
+	    // board.transform = glm::rotate(board.transform, -0.5f * (float)deltaSeconds, glm::vec3(1.0f, 0.0f, 0.0f));
+    	
+    	for (uint i = 0; i < sizeof(models)/sizeof(Model*); i++) {
+	    	renderModel(*models[i], model_location);	
+    	}
 
 		// Handle other events
 		glfwPollEvents();
